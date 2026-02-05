@@ -90,39 +90,51 @@ public class ExcelImportUtil {
             }
             strategy.setDemandName(demandName.trim());
 
-            // 目标地址（第1列，格式：(经度,纬度)）
-            String targetAddress = getCellValueAsString(row.getCell(1));
-            if (targetAddress != null && !targetAddress.trim().isEmpty()) {
-                parseCoordinates(targetAddress.trim(), strategy);
-            }
-
-            // 采集内容（第2列，格式：温度;PM2.5;云量;降水量）
-            String collectContent = getCellValueAsString(row.getCell(2));
-            if (collectContent != null && !collectContent.trim().isEmpty()) {
-                String convertedContent = convertIndicatorNames(collectContent.trim());
-                strategy.setCollectContent(convertedContent);
-            }
-
-            // 采集开始时间（第3列，格式：2026/1/1 12:00）
-            String collectStart = getCellValueAsString(row.getCell(3));
-            if (collectStart != null && !collectStart.trim().isEmpty()) {
-                strategy.setCollectStart(convertDateTime(collectStart.trim()));
-            }
-
-            // 采集结束时间（第4列，格式：2026/1/5 12:00）
-            String collectEnd = getCellValueAsString(row.getCell(4));
-            if (collectEnd != null && !collectEnd.trim().isEmpty()) {
-                strategy.setCollectEnd(convertDateTime(collectEnd.trim()));
-            }
-
-            // 需求类型（第5列，值：普通或紧急）
-            String demandType = getCellValueAsString(row.getCell(5));
+            // 需求类型（第1列，值：重点或普通）
+            String demandType = getCellValueAsString(row.getCell(1));
             if (demandType != null && !demandType.trim().isEmpty()) {
                 Integer priority = convertDemandTypeToPriority(demandType.trim());
                 strategy.setTargetPriority(priority);
             } else {
                 // 如果未填写，默认为普通（1）
                 strategy.setTargetPriority(1);
+            }
+
+            // 目标地址（第2列，格式：(经度,纬度)）
+            String targetAddress = getCellValueAsString(row.getCell(2));
+            if (targetAddress != null && !targetAddress.trim().isEmpty()) {
+                parseCoordinates(targetAddress.trim(), strategy);
+            }
+
+            // 采集内容（第3列，格式：温度;PM2.5;云量;降水量）
+            String collectContent = getCellValueAsString(row.getCell(3));
+            if (collectContent != null && !collectContent.trim().isEmpty()) {
+                String convertedContent = convertIndicatorNames(collectContent.trim());
+                strategy.setCollectContent(convertedContent);
+            }
+
+            // 采集开始时间（第4列，格式：2026/1/1 12:00）
+            String collectStart = getCellValueAsString(row.getCell(4));
+            if (collectStart != null && !collectStart.trim().isEmpty()) {
+                strategy.setCollectStart(convertDateTime(collectStart.trim()));
+            }
+
+            // 采集结束时间（第5列，格式：2026/1/5 12:00）
+            String collectEnd = getCellValueAsString(row.getCell(5));
+            if (collectEnd != null && !collectEnd.trim().isEmpty()) {
+                strategy.setCollectEnd(convertDateTime(collectEnd.trim()));
+            }
+
+            // 城市名称（第6列）
+            String cityName = getCellValueAsString(row.getCell(6));
+            if (cityName != null && !cityName.trim().isEmpty()) {
+                strategy.setCityName(cityName.trim());
+            }
+
+            // 备注信息（第7列）
+            String remark = getCellValueAsString(row.getCell(7));
+            if (remark != null && !remark.trim().isEmpty()) {
+                strategy.setRemark(remark.trim());
             }
 
             return strategy;
@@ -239,7 +251,10 @@ public class ExcelImportUtil {
 
     /**
      * 转换日期时间格式
-     * 输入格式：2026/1/1 12:00 或 2026/01/01 12:00
+     * 输入格式：
+     * - 2026/1/1 12:00 或 2026/01/01 12:00（斜杠分隔）
+     * - 2026-02-05 09:56:47（横杠分隔，已包含秒）
+     * - 2026-02-05 09:56（横杠分隔，不包含秒）
      * 输出格式：2026-01-01 12:00:00
      *
      * @param dateTimeStr 日期时间字符串
@@ -250,30 +265,59 @@ public class ExcelImportUtil {
             // 处理多种可能的格式
             dateTimeStr = dateTimeStr.trim();
 
+            // 如果已经是标准格式（包含横杠和秒），直接返回
+            if (dateTimeStr.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")) {
+                return dateTimeStr;
+            }
+
             // 如果包含日期和时间
             if (dateTimeStr.contains(" ")) {
                 String[] parts = dateTimeStr.split(" ");
                 String datePart = parts[0];
                 String timePart = parts.length > 1 ? parts[1] : "00:00";
 
-                // 处理日期部分：2026/1/1 -> 2026-01-01
-                String[] dateParts = datePart.split("/");
+                String[] dateParts;
+                // 判断日期分隔符是斜杠还是横杠
+                if (datePart.contains("/")) {
+                    dateParts = datePart.split("/");
+                } else if (datePart.contains("-")) {
+                    dateParts = datePart.split("-");
+                } else {
+                    log.warn("无法识别的日期格式: {}", dateTimeStr);
+                    return dateTimeStr;
+                }
+
                 if (dateParts.length == 3) {
                     String year = dateParts[0];
                     String month = String.format("%02d", Integer.parseInt(dateParts[1]));
                     String day = String.format("%02d", Integer.parseInt(dateParts[2]));
 
-                    // 处理时间部分：12:00 -> 12:00:00
+                    // 处理时间部分：12:00 -> 12:00:00 或 09:56:47 -> 09:56:47
                     String[] timeParts = timePart.split(":");
                     String hour = timeParts.length > 0 ? String.format("%02d", Integer.parseInt(timeParts[0])) : "00";
                     String minute = timeParts.length > 1 ? String.format("%02d", Integer.parseInt(timeParts[1])) : "00";
                     String second = timeParts.length > 2 ? timeParts[2] : "00";
+                    // 确保秒是两位数
+                    if (second.length() == 1) {
+                        second = "0" + second;
+                    } else if (second.length() > 2) {
+                        second = second.substring(0, 2);
+                    }
 
                     return String.format("%s-%s-%s %s:%s:%s", year, month, day, hour, minute, second);
                 }
             } else {
                 // 只有日期，没有时间
-                String[] dateParts = dateTimeStr.split("/");
+                String[] dateParts;
+                if (dateTimeStr.contains("/")) {
+                    dateParts = dateTimeStr.split("/");
+                } else if (dateTimeStr.contains("-")) {
+                    dateParts = dateTimeStr.split("-");
+                } else {
+                    log.warn("无法识别的日期格式: {}", dateTimeStr);
+                    return dateTimeStr;
+                }
+
                 if (dateParts.length == 3) {
                     String year = dateParts[0];
                     String month = String.format("%02d", Integer.parseInt(dateParts[1]));
@@ -291,11 +335,11 @@ public class ExcelImportUtil {
 
     /**
      * 转换需求类型为优先级
-     * 输入：普通 -> 输出：1
-     * 输入：紧急 -> 输出：0
+     * 输入：重点 -> 输出：0（紧急）
+     * 输入：普通 -> 输出：1（普通）
      * 如果无法识别，默认返回 1（普通）
      *
-     * @param demandType 需求类型字符串（"普通"或"紧急"）
+     * @param demandType 需求类型字符串（"重点"或"普通"）
      * @return 优先级数值（0-紧急，1-普通）
      */
     private Integer convertDemandTypeToPriority(String demandType) {
@@ -303,8 +347,8 @@ public class ExcelImportUtil {
             return 1; // 默认为普通
         }
         String trimmed = demandType.trim();
-        if ("紧急".equals(trimmed)) {
-            return 0;
+        if ("重点".equals(trimmed)) {
+            return 0; // 重点对应紧急优先级
         } else if ("普通".equals(trimmed)) {
             return 1;
         } else {
