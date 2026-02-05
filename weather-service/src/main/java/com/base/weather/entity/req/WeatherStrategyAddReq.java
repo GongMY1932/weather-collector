@@ -51,4 +51,9 @@ public class WeatherStrategyAddReq {
      * 备注信息
      */
     private String remark;
+
+    /**
+     * 策略优先级（0-紧急，1-普通）
+     */
+    private Integer targetPriority;
 }

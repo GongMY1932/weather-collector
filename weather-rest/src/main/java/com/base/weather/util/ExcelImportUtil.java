@@ -115,6 +115,16 @@ public class ExcelImportUtil {
                 strategy.setCollectEnd(convertDateTime(collectEnd.trim()));
             }
 
+            // 需求类型（第5列，值：普通或紧急）
+            String demandType = getCellValueAsString(row.getCell(5));
+            if (demandType != null && !demandType.trim().isEmpty()) {
+                Integer priority = convertDemandTypeToPriority(demandType.trim());
+                strategy.setTargetPriority(priority);
+            } else {
+                // 如果未填写，默认为普通（1）
+                strategy.setTargetPriority(1);
+            }
+
             return strategy;
 
         } catch (Exception e) {
@@ -277,5 +287,30 @@ public class ExcelImportUtil {
 
         // 如果转换失败，返回原值
         return dateTimeStr;
+    }
+
+    /**
+     * 转换需求类型为优先级
+     * 输入：普通 -> 输出：1
+     * 输入：紧急 -> 输出：0
+     * 如果无法识别，默认返回 1（普通）
+     *
+     * @param demandType 需求类型字符串（"普通"或"紧急"）
+     * @return 优先级数值（0-紧急，1-普通）
+     */
+    private Integer convertDemandTypeToPriority(String demandType) {
+        if (demandType == null || demandType.trim().isEmpty()) {
+            return 1; // 默认为普通
+        }
+        String trimmed = demandType.trim();
+        if ("紧急".equals(trimmed)) {
+            return 0;
+        } else if ("普通".equals(trimmed)) {
+            return 1;
+        } else {
+            // 如果无法识别，默认返回普通
+            log.warn("无法识别的需求类型: {}，将默认为普通", demandType);
+            return 1;
+        }
     }
 }
