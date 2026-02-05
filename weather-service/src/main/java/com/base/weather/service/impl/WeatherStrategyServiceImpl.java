@@ -142,16 +142,74 @@ public class WeatherStrategyServiceImpl extends ServiceImpl<WeatherStrategyMappe
 
     /**
      * 更新
+     * <p>
+     * 更新策略时，如果修改了采集结束时间，需要判断是否需要更新策略状态：
+     * - 如果新的结束时间在7天内，且当前状态是"待采集"或"已取消"，则改为"采集中"并触发采集
+     * - 如果新的结束时间超过7天，且当前状态是"采集中"，则改为"待采集"
      *
-     * @param weatherStrategyAddReq 新增请求
+     * @param weatherStrategyAddReq 更新请求
      * @return 更新结果
      */
     public boolean update(WeatherStrategyAddReq weatherStrategyAddReq) {
         WeatherStrategy weatherStrategy = getById(weatherStrategyAddReq.getId());
         AssertUtils.throwNull(weatherStrategy, "没有查询到对应的实体信息");
+        
+        // 保存原始状态和时间，用于判断是否需要更新状态
+        String originalCollectEnd = weatherStrategy.getCollectEnd();
+        String originalCollectStatus = weatherStrategy.getCollectStatus();
+        String newCollectEnd = weatherStrategyAddReq.getCollectEnd();
+        
+        // 复制属性
         BeanUtils.copyProperties(weatherStrategyAddReq, weatherStrategy);
         weatherStrategy.setUpdateTime(new Date());
-        return updateById(weatherStrategy);
+        
+        // 判断是否需要更新状态（仅当采集结束时间发生变化时）
+        boolean collectEndChanged = !StringUtils.hasText(originalCollectEnd) 
+                || !StringUtils.hasText(newCollectEnd) 
+                || !originalCollectEnd.equals(newCollectEnd);
+        
+        // 标记是否需要触发采集
+        boolean shouldTriggerCollection = false;
+        
+        if (collectEndChanged) {
+            // 判断新的结束时间是否在7天内
+            boolean within7Days = isCollectEndWithinDays(newCollectEnd, 7);
+            // 使用原始状态进行判断（因为状态更新应该基于原始状态）
+            String originalStatus = originalCollectStatus;
+            
+            // 如果新时间在7天内
+            if (within7Days) {
+                // 原始状态是"待采集"或"已取消"，改为"采集中"
+                if (String.valueOf(CollectStatusEnum.PENDING.getCode()).equals(originalStatus)
+                        || String.valueOf(CollectStatusEnum.CANCELLED.getCode()).equals(originalStatus)) {
+                    weatherStrategy.setCollectStatus(String.valueOf(CollectStatusEnum.COLLECTING.getCode()));
+                    shouldTriggerCollection = true;
+                    log.info("策略 {} 采集结束时间更新后，状态从 {} 改为采集中", weatherStrategy.getId(), originalStatus);
+                }
+            } else {
+                // 如果新时间超过7天，且原始状态是"采集中"，改为"待采集"
+                if (String.valueOf(CollectStatusEnum.COLLECTING.getCode()).equals(originalStatus)) {
+                    weatherStrategy.setCollectStatus(String.valueOf(CollectStatusEnum.PENDING.getCode()));
+                    log.info("策略 {} 采集结束时间更新后，状态从采集中改为待采集", weatherStrategy.getId());
+                }
+            }
+            // 注意：如果状态是"采集完成"（SUCCESS），保持原状态不变
+        }
+        
+        boolean result = updateById(weatherStrategy);
+        
+        // 如果更新成功，且需要触发采集，则触发预报数据采集
+        if (result && shouldTriggerCollection) {
+            try {
+                log.info("策略 {} 更新后立即触发预报数据采集", weatherStrategy.getId());
+                weatherDataService.collectForecastDataByTimeRange(weatherStrategy);
+            } catch (Exception e) {
+                log.error("策略 {} 更新后立即采集预报数据失败", weatherStrategy.getId(), e);
+                // 本次采集异常不影响策略更新的成功
+            }
+        }
+        
+        return result;
     }
 
 

@@ -45,6 +45,7 @@
                 AND collect_status = #{queryReq.collectStatus}
             </if>
         </where>
+        order by create_time desc
     </select>
 
     <!-- 根据需求名称查询是否存在 -->
