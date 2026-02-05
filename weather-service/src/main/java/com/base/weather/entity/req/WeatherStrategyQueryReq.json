@@ -1,0 +1,15 @@
+{
+  "page": 1,
+  "pageNo": 1,
+  "rows": 10,
+  "pageSize": 10,
+  "keywords": "天气查询",
+  "deleteFlag": "0",
+  "demandName": "北京天气预报需求",
+  "targetLatitude": 39.9042,
+  "targetLongitude": 116.4074,
+  "collectContent": "温度、湿度、风速",
+  "collectStart": "2024-01-01 00:00:00",
+  "collectEnd": "2024-01-31 23:59:59",
+  "cityName": "北京"
+}

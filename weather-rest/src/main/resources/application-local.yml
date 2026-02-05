@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/aircas?currentSchema=weather
+    username: postgres
+    password: 211108
+
+api:
+  hefeng:
+    base: https://p43qqr6wkg.re.qweatherapi.com
+    api-key: f5941b643d434569bceb339d062c0480
+  agent:
+    base: http://localhost/v1/chat-messages

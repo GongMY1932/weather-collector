@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.base.weather.mapper.WeatherDataMapper">
+
+    <!-- 物理删除旧的预报数据（同一策略、同一时间范围、同一批指标） -->
+    <delete id="deleteByStrategyAndTimeRangeAndIndicators">
+        DELETE FROM weather_data
+        <where>
+            strategy_id = #{strategyId}
+            AND collect_time &gt;= #{startTime}
+            AND collect_time &lt;= #{endTime}
+            <if test="indicatorNames != null and indicatorNames.size() &gt; 0">
+                AND indicator_name IN
+                <foreach collection="indicatorNames" item="name" open="(" separator="," close=")">
+                    #{name}
+                </foreach>
+            </if>
+        </where>
+    </delete>
+
+    <!-- 根据策略ID查询历史天气数据，按 collectTime 分组，每个指标作为独立字段 -->
+    <select id="getHistoryByStrategyId" resultType="com.base.weather.entity.vo.WeatherDataVo">
+        SELECT
+            strategy_id AS strategyId,
+            MAX(city_name) AS cityName,
+            MAX(latitude) AS latitude,
+            MAX(longitude) AS longitude,
+            collect_time AS collectTime,
+            -- 实时天气指标
+            MAX(CASE WHEN indicator_name = 'Temperature' THEN indicator_value END) AS temperature,
+            MAX(CASE WHEN indicator_name = 'Perceived_temperature' THEN indicator_value END) AS perceivedTemperature,
+            MAX(CASE WHEN indicator_name = 'Wind_speed' THEN indicator_value END) AS windSpeed,
+            MAX(CASE WHEN indicator_name = 'Wind_direction' THEN indicator_value END) AS windDirection,
+            MAX(CASE WHEN indicator_name = 'Relative_humidify' THEN indicator_value END) AS relativeHumidify,
+            MAX(CASE WHEN indicator_name = 'Atmospheric_pressure' THEN indicator_value END) AS atmosphericPressure,
+            MAX(CASE WHEN indicator_name = 'Precipitation' THEN indicator_value END) AS precipitation,
+            MAX(CASE WHEN indicator_name = 'Visibility' THEN indicator_value END) AS visibility,
+            MAX(CASE WHEN indicator_name = 'Dew_point_temperature' THEN indicator_value END) AS dewPointTemperature,
+            MAX(CASE WHEN indicator_name = 'Cloud_cover' THEN indicator_value END) AS cloudCover,
+            -- 空气质量指标
+            MAX(CASE WHEN indicator_name = 'PM2p5' THEN indicator_value END) AS pm2p5,
+            MAX(CASE WHEN indicator_name = 'PM10' THEN indicator_value END) AS pm10,
+            MAX(CASE WHEN indicator_name = 'CO' THEN indicator_value END) AS co,
+            MAX(CASE WHEN indicator_name = 'SO2' THEN indicator_value END) AS so2,
+            MAX(CASE WHEN indicator_name = 'O3' THEN indicator_value END) AS o3,
+            MAX(CASE WHEN indicator_name = 'NO2' THEN indicator_value END) AS no2
+        FROM weather_data
+        <where>
+            del_flag = 0
+            AND strategy_id = #{strategyId}
+            <if test="startTime != null">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY strategy_id, collect_time
+        ORDER BY collect_time DESC
+    </select>
+
+    <!-- 根据策略ID和指标名称查询历史天气数据，按 collectTime 分组，每个指标作为独立字段 -->
+    <select id="getHistoryByStrategyIdAndIndicator" resultType="com.base.weather.entity.vo.WeatherDataVo">
+        SELECT
+            strategy_id AS strategyId,
+            MAX(city_name) AS cityName,
+            MAX(latitude) AS latitude,
+            MAX(longitude) AS longitude,
+            collect_time AS collectTime,
+            -- 实时天气指标
+            MAX(CASE WHEN indicator_name = 'Temperature' THEN indicator_value END) AS temperature,
+            MAX(CASE WHEN indicator_name = 'Perceived_temperature' THEN indicator_value END) AS perceivedTemperature,
+            MAX(CASE WHEN indicator_name = 'Wind_speed' THEN indicator_value END) AS windSpeed,
+            MAX(CASE WHEN indicator_name = 'Wind_direction' THEN indicator_value END) AS windDirection,
+            MAX(CASE WHEN indicator_name = 'Relative_humidify' THEN indicator_value END) AS relativeHumidify,
+            MAX(CASE WHEN indicator_name = 'Atmospheric_pressure' THEN indicator_value END) AS atmosphericPressure,
+            MAX(CASE WHEN indicator_name = 'Precipitation' THEN indicator_value END) AS precipitation,
+            MAX(CASE WHEN indicator_name = 'Visibility' THEN indicator_value END) AS visibility,
+            MAX(CASE WHEN indicator_name = 'Dew_point_temperature' THEN indicator_value END) AS dewPointTemperature,
+            MAX(CASE WHEN indicator_name = 'Cloud_cover' THEN indicator_value END) AS cloudCover,
+            -- 空气质量指标
+            MAX(CASE WHEN indicator_name = 'PM2p5' THEN indicator_value END) AS pm2p5,
+            MAX(CASE WHEN indicator_name = 'PM10' THEN indicator_value END) AS pm10,
+            MAX(CASE WHEN indicator_name = 'CO' THEN indicator_value END) AS co,
+            MAX(CASE WHEN indicator_name = 'SO2' THEN indicator_value END) AS so2,
+            MAX(CASE WHEN indicator_name = 'O3' THEN indicator_value END) AS o3,
+            MAX(CASE WHEN indicator_name = 'NO2' THEN indicator_value END) AS no2
+        FROM weather_data
+        <where>
+            del_flag = 0
+            AND strategy_id = #{strategyId}
+            AND indicator_name = #{indicatorName}
+            <if test="startTime != null">
+                AND collect_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND collect_time &lt;= #{endTime}
+            </if>
+        </where>
+        GROUP BY strategy_id, collect_time
+        ORDER BY collect_time DESC
+    </select>
+
+</mapper>

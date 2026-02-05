@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.base.weather.mapper.WeatherStrategyMapper">
+
+    <!-- 分页查询天气策略 -->
+
+    <select id="getList" resultType="com.base.weather.entity.vo.WeatherStrategyVo">
+        SELECT
+        id,
+        demand_name AS demandName,
+        target_latitude AS targetLatitude,
+        target_longitude AS targetLongitude,
+        collect_content AS collectContent,
+        collect_start AS collectStart,
+        collect_end AS collectEnd,
+        city_name AS cityName,
+        remark AS remark,
+        collect_status AS collectStatus,
+        target_priority AS targetPriority
+        FROM weather_strategy
+        <where>
+            del_flag = 0
+            <if test="queryReq.demandName != null and queryReq.demandName != ''">
+                AND demand_name LIKE CONCAT('%', #{queryReq.demandName}, '%')
+            </if>
+            <if test="queryReq.cityName != null and queryReq.cityName != ''">
+                AND city_name LIKE CONCAT('%', #{queryReq.cityName}, '%')
+            </if>
+            <if test="queryReq.targetLatitude != null">
+                AND target_latitude = #{queryReq.targetLatitude}
+            </if>
+            <if test="queryReq.targetLongitude != null">
+                AND target_longitude = #{queryReq.targetLongitude}
+            </if>
+            <if test="queryReq.collectContent != null and queryReq.collectContent != ''">
+                AND collect_content LIKE CONCAT('%', #{queryReq.collectContent}, '%')
+            </if>
+            <if test="queryReq.collectStart != null and queryReq.collectStart != ''">
+                AND collect_start &gt;= #{queryReq.collectStart}
+            </if>
+            <if test="queryReq.collectEnd != null and queryReq.collectEnd != ''">
+                AND collect_end &lt;= #{queryReq.collectEnd}
+            </if>
+            <if test="queryReq.collectStatus != null and queryReq.collectStatus != ''">
+                AND collect_status = #{queryReq.collectStatus}
+            </if>
+        </where>
+    </select>
+
+    <!-- 根据需求名称查询是否存在 -->
+    <select id="countByDemandName" resultType="int">
+        SELECT COUNT(1)
+        FROM weather_strategy
+        WHERE del_flag = 0
+          AND demand_name = #{demandName}
+    </select>
+
+</mapper>
